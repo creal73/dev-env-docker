@@ -1,26 +1,42 @@
-// For format details, see https://aka.ms/vscode-remote/devcontainer.json or the definition README at
-// https://github.com/microsoft/vscode-dev-containers/tree/master/containers/ubuntu-18.04-git
-{
-	"name": "Angular",
-	"dockerFile": "Dockerfile",
-	// The optional 'runArgs' property can be used to specify additional runtime arguments.
-	"runArgs": [
-		// Uncomment the line if you will use a ptrace-based debugger like C++, Go, and Rust.
-		// "--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined",
+#-------------------------------------------------------------------------------------------------------------
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See https://go.microsoft.com/fwlink/?linkid=2090316 for license information.
+#-------------------------------------------------------------------------------------------------------------
+FROM ubuntu:disco
 
-		// Uncomment the next line to use a non-root user. See https://aka.ms/vscode-remote/containers/non-root-user.
-		// "-u", "1000"
-	],
+# Avoid warnings by switching to noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
-	// Uncomment the next line if you want to publish any ports.
-	"appPort": 4200,
+# Or your actual UID, GID on Linux if not the default 1000
+ARG USERNAME=vscode
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 
-	// Uncomment the next line if you want to add in default container specific settings.json values
-	// "settings":  { "workbench.colorTheme": "Quiet Light" },
+# Configure apt and install packages
+RUN apt-get update \
+    && apt-get -y install --no-install-recommends apt-utils dialog 2>&1 \
+    #
+    # Verify git, process tools, lsb-release (common in install instructions for CLIs) installed
+    && apt-get -y install git procps lsb-release curl \
+    #
+    # Install n to manage nodejs versions
+    && curl -o /usr/local/bin/n https://raw.githubusercontent.com/visionmedia/n/master/bin/n \
+    && chmod +x /usr/local/bin/n \
+    && n latest \    
+    #
+    # Create a non-root user to use if preferred - see https://aka.ms/vscode-remote/containers/non-root-user.
+    && groupadd --gid $USER_GID $USERNAME \
+    && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
+    # [Optional] Uncomment the next three lines to add sudo support
+    # && apt-get install -y sudo \
+    # && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    # && chmod 0440 /etc/sudoers.d/$USERNAME \
+    #
+    # Clean up
+    && apt-get autoremove -y \
+    && apt-get clean -y \
+    && rm -rf /var/lib/apt/lists/*
+    #
 
-	// Uncomment the next line to run commands after the container is created.
-	"postCreateCommand": "npm i -g @angular/cli",
-
-	// Add the IDs of any extensions you want installed in the array below.
-	"extensions": []
-}
+# Switch back to dialog for any ad-hoc use of apt-get
+ENV DEBIAN_FRONTEND=
